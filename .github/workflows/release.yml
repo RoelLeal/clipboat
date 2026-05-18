@@ -106,23 +106,32 @@ jobs:
             echo "Application compiled successfully. Packaging..."
             cd clipboat/build/clipboat.xcarchive/Products/Applications
             
-            # 1. Create ZIP archive (preserving symlinks and permissions with -yr)
-            zip -yr ../../../../clipboat.zip clipboat.app
+            # 1. Create ZIP archive (preserving symlinks and permissions with -yr at GITHUB_WORKSPACE)
+            zip -yr "$GITHUB_WORKSPACE/clipboat.zip" clipboat.app
             
-            # 2. Create premium DMG disk image installer
+            # 2. Create premium DMG disk image installer at GITHUB_WORKSPACE
             echo "Creating DMG installer..."
             mkdir -p dmg_temp
             cp -R clipboat.app dmg_temp/
             ln -s /Applications dmg_temp/Applications
-            hdiutil create -volname "clipboat" -srcfolder dmg_temp -ov -format UDZO ../../../../clipboat.dmg
+            hdiutil create -volname "clipboat" -srcfolder dmg_temp -ov -format UDZO "$GITHUB_WORKSPACE/clipboat.dmg"
             rm -rf dmg_temp
             
             cd -
-            echo "Packages created successfully: clipboat.zip and clipboat.dmg"
+            echo "Packages created successfully at workspace root: clipboat.zip and clipboat.dmg"
           else
             echo "::error::Compiled clipboat.app not found at $APP_PATH"
             exit 1
           fi
+
+      - name: Upload Build Artifacts to Workflow Run
+        uses: actions/upload-artifact@v4
+        with:
+          name: clipboat-packages
+          path: |
+            clipboat.zip
+            clipboat.dmg
+          if-no-files-found: error
 
       - name: Extract Release Notes from CHANGELOG.md
         shell: bash
