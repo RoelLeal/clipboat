@@ -20,6 +20,11 @@ on:
 permissions:
   contents: write
 
+# Global environment variables to prevent static analysis errors
+env:
+  RELEASE_TAG: ''
+  CLEAN_VERSION: ''
+
 jobs:
   release:
     name: Build & Publish Release
@@ -62,7 +67,7 @@ jobs:
       - name: Automatically Create and Push Tag
         if: github.event_name == 'workflow_dispatch' && inputs.create_tag == true
         run: |
-          TAG_NAME="${{ env.RELEASE_TAG }}"
+          TAG_NAME="$RELEASE_TAG"
           
           # Check if tag already exists on remote
           if git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
@@ -82,14 +87,14 @@ jobs:
           
       - name: Compile and Archive macOS App
         run: |
-          echo "Archiving clipboat app with version ${{ env.CLEAN_VERSION }}..."
+          echo "Archiving clipboat app with version $CLEAN_VERSION..."
           xcodebuild -project clipboat/clipboat.xcodeproj \
                      -scheme clipboat \
                      -configuration Release \
                      -derivedDataPath clipboat/build \
                      -archivePath clipboat/build/clipboat.xcarchive \
                      archive \
-                     MARKETING_VERSION=${{ env.CLEAN_VERSION }} \
+                     MARKETING_VERSION=$CLEAN_VERSION \
                      CODE_SIGNING_ALLOWED=NO \
                      CODE_SIGN_IDENTITY="-" \
                      CODE_SIGNING_REQUIRED=NO
