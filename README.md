@@ -25,10 +25,20 @@
 
 To download and run the latest pre-compiled version of **clipboat**:
 
+### Option A: Disk Image (.dmg) — Recommended
 1. Go to the [Releases](https://github.com/RoelLeal/clipboat/releases) page.
-2. Download the `clipboat.zip` file for the latest version (e.g., `v0.0.1`).
-3. Double-click the `clipboat.zip` file to extract the application.
+2. Download the `clipboat.dmg` installer for the latest version.
+3. Double-click the `clipboat.dmg` file to mount it.
+4. Drag the **clipboat** icon into the **Applications** folder shortcut in the disk image window.
+
+### Option B: ZIP Archive (.zip)
+1. Go to the [Releases](https://github.com/RoelLeal/clipboat/releases) page.
+2. Download the `clipboat.zip` file.
+3. Double-click the `clipboat.zip` file to extract `clipboat.app`.
 4. Drag `clipboat.app` to your `/Applications` folder.
+
+---
+
 5. Launch **clipboat** from your Applications folder or via Spotlight!
 
 > [!NOTE]
@@ -65,8 +75,8 @@ If you'd like to build **clipboat** from source:
 Whenever a release tag (e.g. `v0.0.1`) is pushed, or when the release workflow is manually triggered via the Actions tab:
 1. The project is checked out.
 2. The Swift codebase is compiled and archived using `xcodebuild` (ad-hoc signed for open-source distribution).
-3. The `.app` bundle is packed into a high-compression `.zip` file.
-4. A formal GitHub Release is generated automatically, appending the compiled binary as a downloadable asset.
+3. The `.app` bundle is packaged into both a high-compression `.zip` archive (preserving file execution permissions) and a native `.dmg` Disk Image.
+4. A formal GitHub Release is generated automatically, appending both compiled binaries as downloadable assets.
 
 ---
 

@@ -99,15 +99,26 @@ jobs:
                      CODE_SIGN_IDENTITY="-" \
                      CODE_SIGNING_REQUIRED=NO
 
-      - name: Package Application Bundle
+      - name: Package Application Bundle (.zip and .dmg)
         run: |
           APP_PATH="clipboat/build/clipboat.xcarchive/Products/Applications/clipboat.app"
           if [ -d "$APP_PATH" ]; then
             echo "Application compiled successfully. Packaging..."
             cd clipboat/build/clipboat.xcarchive/Products/Applications
-            zip -r ../../../../clipboat.zip clipboat.app
+            
+            # 1. Create ZIP archive (preserving symlinks and permissions with -yr)
+            zip -yr ../../../../clipboat.zip clipboat.app
+            
+            # 2. Create premium DMG disk image installer
+            echo "Creating DMG installer..."
+            mkdir -p dmg_temp
+            cp -R clipboat.app dmg_temp/
+            ln -s /Applications dmg_temp/Applications
+            hdiutil create -volname "clipboat" -srcfolder dmg_temp -ov -format UDZO ../../../../clipboat.dmg
+            rm -rf dmg_temp
+            
             cd -
-            echo "Package created at clipboat.zip"
+            echo "Packages created successfully: clipboat.zip and clipboat.dmg"
           else
             echo "::error::Compiled clipboat.app not found at $APP_PATH"
             exit 1
@@ -143,9 +154,11 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.RELEASE_TAG }}
-          name: clipboat ${{ env.RELEASE_TAG }}
+          name: ${{ env.RELEASE_TAG }}
           body_path: release_notes.txt
-          files: clipboat.zip
+          files: |
+            clipboat.zip
+            clipboat.dmg
           draft: false
           prerelease: false
         env:
