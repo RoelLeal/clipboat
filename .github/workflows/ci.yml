@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  build:
+    name: Build
+    runs-on: macos-15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Xcode version
+        run: xcodebuild -version
+
+      - name: Build
+        run: |
+          xcodebuild -project clipboat/clipboat.xcodeproj \
+                     -scheme clipboat \
+                     -configuration Debug \
+                     -derivedDataPath clipboat/build \
+                     CODE_SIGNING_ALLOWED=NO \
+                     build

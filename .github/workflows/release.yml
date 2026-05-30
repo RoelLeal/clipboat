@@ -1,173 +1,164 @@
-name: Build and Release clipboat
+name: Release
 
 on:
-  push:
-    tags:
-      - 'v*'
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to release (e.g., 0.0.1)'
+        description: 'Version (e.g. 1.0.0)'
         required: true
         default: '0.0.1'
       create_tag:
-        description: 'Create Git tag automatically'
+        description: 'Create and push Git tag'
         type: boolean
         required: true
         default: true
 
-# Grant permission to create releases and push tags
 permissions:
   contents: write
 
-# Global environment variables to prevent static analysis errors
-env:
-  RELEASE_TAG: ''
-  CLEAN_VERSION: ''
-
 jobs:
   release:
-    name: Build & Publish Release
-    runs-on: macos-latest
-    
+    name: Build & Release
+    runs-on: macos-15
+
     steps:
-      - name: Checkout Repository
+      - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Fetch all history for tag validation and logs
-          
-      - name: Configure Git Credentials
+          fetch-depth: 0
+
+      - name: Configure Git
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          
-      - name: Determine Release Version & Tag
-        id: version_setup
+
+      - name: Resolve version
+        id: version
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             VERSION="${{ inputs.version }}"
-            # Ensure the version input starts with v for the tag
-            if [[ "$VERSION" =~ ^v ]]; then
-              TAG_NAME="$VERSION"
-            else
-              TAG_NAME="v$VERSION"
-            fi
+            [[ "$VERSION" =~ ^v ]] && TAG="$VERSION" || TAG="v$VERSION"
           else
-            # Triggered by tag push
-            TAG_NAME="${{ github.ref_name }}"
+            TAG="${{ github.ref_name }}"
           fi
-          
-          # Strip the 'v' prefix for Xcode marketing version
-          CLEAN_VERSION=$(echo "$TAG_NAME" | sed 's/^v//')
-          
-          echo "RELEASE_TAG=$TAG_NAME" >> $GITHUB_ENV
-          echo "CLEAN_VERSION=$CLEAN_VERSION" >> $GITHUB_ENV
-          echo "Setting release tag to $TAG_NAME (clean version: $CLEAN_VERSION)"
+          CLEAN="${TAG#v}"
+          echo "tag=$TAG"     >> "$GITHUB_OUTPUT"
+          echo "clean=$CLEAN" >> "$GITHUB_OUTPUT"
+          echo "Releasing $TAG (version $CLEAN)"
 
-      - name: Automatically Create and Push Tag
+      - name: Create and push tag
         if: github.event_name == 'workflow_dispatch' && inputs.create_tag == true
         run: |
-          TAG_NAME="$RELEASE_TAG"
-          
-          # Check if tag already exists on remote
-          if git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
-            echo "Tag $TAG_NAME already exists locally."
-          elif git ls-remote --tags origin | grep -q "refs/tags/$TAG_NAME"; then
-            echo "Tag $TAG_NAME already exists on remote."
+          TAG="${{ steps.version.outputs.tag }}"
+          if git rev-parse "$TAG" >/dev/null 2>&1 || git ls-remote --tags origin | grep -q "refs/tags/$TAG"; then
+            echo "Tag $TAG already exists — skipping"
           else
-            echo "Tag $TAG_NAME does not exist. Creating and pushing it..."
-            git tag "$TAG_NAME"
-            git push origin "$TAG_NAME"
+            git tag "$TAG"
+            git push origin "$TAG"
           fi
 
-      - name: Show Xcode Developer Environment
+      - name: Xcode version
+        run: xcodebuild -version
+
+      - name: Archive
         run: |
-          xcodebuild -version
-          swift --version
-          
-      - name: Compile and Archive macOS App
-        run: |
-          echo "Archiving clipboat app with version $CLEAN_VERSION..."
           xcodebuild -project clipboat/clipboat.xcodeproj \
                      -scheme clipboat \
                      -configuration Release \
                      -derivedDataPath clipboat/build \
                      -archivePath clipboat/build/clipboat.xcarchive \
                      archive \
-                     MARKETING_VERSION=$CLEAN_VERSION \
+                     MARKETING_VERSION=${{ steps.version.outputs.clean }} \
+                     CURRENT_PROJECT_VERSION=${{ github.run_number }} \
                      CODE_SIGNING_ALLOWED=NO \
                      CODE_SIGN_IDENTITY="-" \
                      CODE_SIGNING_REQUIRED=NO
 
-      - name: Package Application Bundle (.zip and .dmg)
+      - name: Package (ZIP + DMG)
         run: |
-          APP_PATH="clipboat/build/clipboat.xcarchive/Products/Applications/clipboat.app"
-          if [ -d "$APP_PATH" ]; then
-            echo "Application compiled successfully. Packaging..."
-            cd clipboat/build/clipboat.xcarchive/Products/Applications
-            
-            # 1. Create ZIP archive (preserving symlinks and permissions with -yr at GITHUB_WORKSPACE)
-            zip -yr "$GITHUB_WORKSPACE/clipboat.zip" clipboat.app
-            
-            # 2. Create premium DMG disk image installer at GITHUB_WORKSPACE
-            echo "Creating DMG installer..."
-            mkdir -p dmg_temp
-            cp -R clipboat.app dmg_temp/
-            ln -s /Applications dmg_temp/Applications
-            hdiutil create -volname "clipboat" -srcfolder dmg_temp -ov -format UDZO "$GITHUB_WORKSPACE/clipboat.dmg"
-            rm -rf dmg_temp
-            
-            cd -
-            echo "Packages created successfully at workspace root: clipboat.zip and clipboat.dmg"
-          else
-            echo "::error::Compiled clipboat.app not found at $APP_PATH"
+          APP="clipboat/build/clipboat.xcarchive/Products/Applications/clipboat.app"
+          if [ ! -d "$APP" ]; then
+            echo "::error::clipboat.app not found at $APP"
             exit 1
           fi
 
-      - name: Upload Build Artifacts to Workflow Run
+          cd "$(dirname "$APP")"
+
+          # ZIP — preserves symlinks and executable permissions
+          zip -yr "$GITHUB_WORKSPACE/clipboat.zip" clipboat.app
+
+          # DMG — drag-to-Applications installer
+          mkdir -p dmg_tmp
+          cp -R clipboat.app dmg_tmp/
+          ln -s /Applications dmg_tmp/Applications
+          hdiutil create \
+            -volname "clipboat ${{ steps.version.outputs.clean }}" \
+            -srcfolder dmg_tmp \
+            -ov -format UDZO \
+            "$GITHUB_WORKSPACE/clipboat.dmg"
+          rm -rf dmg_tmp
+
+      - name: SHA-256 checksums
+        working-directory: ${{ github.workspace }}
+        run: |
+          shasum -a 256 clipboat.zip clipboat.dmg | tee checksums.txt
+
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: clipboat-packages
+          name: clipboat-${{ steps.version.outputs.tag }}
           path: |
             clipboat.zip
             clipboat.dmg
+            checksums.txt
           if-no-files-found: error
 
-      - name: Extract Release Notes from CHANGELOG.md
-        shell: bash
+      - name: Extract release notes
         run: |
-          python3 -c "
-          import sys, re, os
-          tag = os.environ.get('RELEASE_TAG', '').lstrip('v')
-          print(f'Extracting changelog notes for version: {tag}')
+          python3 - <<'EOF'
+          import re, os
+
+          tag = os.environ.get("RELEASE_TAG", "").lstrip("v")
+          version = "${{ steps.version.outputs.clean }}"
+          tag = tag or version
+
+          gatekeeper_note = """
+          > [!NOTE]
+          > Because clipboat is open-source and distributed without an Apple Developer Program certificate, macOS Gatekeeper may block it on first launch.
+          > **Right-click the app → Open**, or go to **System Settings > Privacy & Security** and click **Open Anyway**.
+          """
+
           try:
-              with open('CHANGELOG.md', 'r') as f:
+              with open("CHANGELOG.md") as f:
                   content = f.read()
-              # Parse sections like '## [0.0.1]' and capture up to the next '##'
-              pattern = r'## \[' + re.escape(tag) + r'\][^\n]*\n(.*?)(?=\n## |\Z)'
+              pattern = r"## \[" + re.escape(tag) + r"\][^\n]*\n(.*?)(?=\n## |\Z)"
               match = re.search(pattern, content, re.DOTALL)
               if match:
-                  notes = match.group(1).strip()
-                  with open('release_notes.txt', 'w') as out:
-                      out.write(notes)
-                  print('Successfully extracted release notes from CHANGELOG.md')
+                  notes = match.group(1).strip() + "\n" + gatekeeper_note
               else:
-                  raise ValueError('Tag section not found in CHANGELOG.md')
+                  raise ValueError("section not found")
           except Exception as e:
-              print(f'Warning: Could not parse CHANGELOG.md: {e}')
-              with open('release_notes.txt', 'w') as out:
-                  out.write('🚀 **clipboat Release ' + tag + '**\n\nDownload the attached `clipboat.zip` file, extract it, and drag `clipboat.app` to your Applications folder.')
-          "
+              print(f"Warning: {e}")
+              notes = f"## clipboat {tag}\n\n" + gatekeeper_note
 
-      - name: Create GitHub Release & Upload Asset
+          with open("release_notes.txt", "w") as f:
+              f.write(notes)
+
+          print("Release notes written.")
+          EOF
+        env:
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ env.RELEASE_TAG }}
-          name: ${{ env.RELEASE_TAG }}
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: clipboat ${{ steps.version.outputs.clean }}
           body_path: release_notes.txt
           files: |
             clipboat.zip
             clipboat.dmg
+            checksums.txt
           draft: false
           prerelease: false
         env:
