@@ -74,6 +74,12 @@ jobs:
                      CODE_SIGN_IDENTITY="-" \
                      CODE_SIGNING_REQUIRED=NO
 
+      - name: Ad-hoc sign
+        run: |
+          APP="clipboat/build/clipboat.xcarchive/Products/Applications/clipboat.app"
+          codesign --force --deep --sign - "$APP"
+          codesign --verify --deep --strict "$APP"
+
       - name: Package (ZIP + DMG)
         run: |
           APP="clipboat/build/clipboat.xcarchive/Products/Applications/clipboat.app"
