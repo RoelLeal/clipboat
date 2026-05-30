@@ -2,7 +2,7 @@
 
 [![Swift](https://img.shields.io/badge/Swift-5.0+-FA7343?style=flat-square&logo=swift&logoColor=white)](https://swift.org)
 [![Platform](https://img.shields.io/badge/Platform-macOS%2014.0+-000000?style=flat-square&logo=apple&logoColor=white)](https://apple.com)
-[![Release](https://img.shields.io/badge/Release-v0.0.1-blue?style=flat-square)](https://github.com/RoelLeal/clipboat/releases)
+[![Release](https://img.shields.io/badge/Release-v0.1.0-blue?style=flat-square)](https://github.com/RoelLeal/clipboat/releases)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 
 **clipboat** is a lightweight, ultra-fast, and open-source clipboard history manager designed exclusively for macOS. Built natively using SwiftUI, it lives quietly in your menu bar and helps you keep track of everything you copy, enabling you to boost your productivity.

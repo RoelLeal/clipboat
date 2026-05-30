@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.1.0] - 2026-05-30
+
+### Added
+- `.gitignore` with comprehensive Xcode, Swift, macOS, CocoaPods, Carthage, and environment exclusions
+- Untracked previously committed `UserInterfaceState.xcuserstate` from git index
+
+---
+
 ## [0.0.1] - 2026-05-18
 
 ### Added

@@ -1,5 +1,7 @@
 # OS X
 .DS_Store
+.AppleDouble
+.LSOverride
 
 # Xcode
 build/
@@ -10,10 +12,15 @@ DerivedData/
 *.xcworkspace
 !default.xcworkspace
 xcuserdata/
+*.xcarchive
+*.ipa
+*.dSYM
+*.dSYM.zip
 
 # Swift Package Manager
 .build/
 .swiftpm/
+Package.resolved
 
 # Fastlane
 fastlane/report.xml
@@ -23,3 +30,14 @@ fastlane/test_output
 
 # CocoaPods
 Pods/
+
+# Carthage
+Carthage/Build/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
